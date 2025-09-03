@@ -59,8 +59,12 @@ const CoachingSystem = () => {
   const apiCall = async (endpoint, options = {}) => {
     try {
       const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: options.method || 'GET',
+        mode: 'cors',
+        credentials: 'omit',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           ...options.headers
         },
         ...options
