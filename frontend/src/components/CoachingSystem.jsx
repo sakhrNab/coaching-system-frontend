@@ -1044,7 +1044,10 @@ const CoachingSystem = () => {
                 <h3 className="text-lg font-semibold mb-4">{client.name}</h3>
                 
                 <div className="mb-4">
-                  <h4 className="font-medium mb-2">Default Messages:</h4>
+                  <h4 className="font-medium mb-2">Default Messages (Template Messages):</h4>
+                  <p className="text-sm text-gray-600 mb-3">
+                    💡 These messages are sent as WhatsApp templates and can initiate conversations
+                  </p>
                   <div className="grid gap-2">
                     {defaultCelebrationMessages.map((message, index) => (
                       <button
@@ -1056,7 +1059,12 @@ const CoachingSystem = () => {
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
-                        {message}
+                        <div className="flex items-center justify-between">
+                          <span>{message}</span>
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            Template
+                          </span>
+                        </div>
                       </button>
                     ))}
                   </div>
