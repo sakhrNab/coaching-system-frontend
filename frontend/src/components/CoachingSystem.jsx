@@ -32,12 +32,13 @@ const CoachingSystem = () => {
   const [clientHistory, setClientHistory] = useState([]);
   const [editingClient, setEditingClient] = useState(null);
 
-  // API Base URL
-  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8001';
+  // API Base URL - Use runtime configuration
+  const API_BASE = window._env_?.REACT_APP_API_URL || process.env.REACT_APP_API_URL || 'http://localhost:8001';
   
   // Debug: Log API URL (remove in production)
   console.log('API Base URL:', API_BASE);
   console.log('Environment:', process.env.NODE_ENV);
+  console.log('Runtime Config:', window._env_);
 
   // Static fallback data
   const fallbackClients = [
