@@ -22,6 +22,15 @@ const CoachingSystem = () => {
   // Scheduling
   const [schedulingOptions, setSchedulingOptions] = useState({});
   const [coachTimezone, setCoachTimezone] = useState('EST');
+  
+  // Analytics and Stats
+  const [coachStats, setCoachStats] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  
+  // Client Management
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [clientHistory, setClientHistory] = useState([]);
+  const [editingClient, setEditingClient] = useState(null);
 
   // API Base URL
   const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8001';
@@ -135,9 +144,86 @@ const CoachingSystem = () => {
         setDefaultCelebrationMessages(fallbackCelebrationMessages);
       }
 
+      // Load coach stats for dashboard
+      try {
+        const stats = await apiCall(`/coaches/${coachId}/stats`);
+        setCoachStats(stats);
+      } catch (error) {
+        console.error('Failed to load coach stats:', error);
+      }
+
     } catch (error) {
       setError('Failed to load coach data');
       console.error('Load coach data error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Enhanced API functions for better frontend integration
+  const loadCoachStats = async () => {
+    try {
+      const stats = await apiCall(`/coaches/${coachData.id}/stats`);
+      setCoachStats(stats);
+    } catch (error) {
+      console.error('Failed to load coach stats:', error);
+    }
+  };
+
+  const loadAnalytics = async () => {
+    try {
+      const analyticsData = await apiCall(`/coaches/${coachData.id}/analytics`);
+      setAnalytics(analyticsData);
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    }
+  };
+
+  const updateClient = async (clientId, clientData) => {
+    try {
+      setLoading(true);
+      await apiCall(`/coaches/${coachData.id}/clients/${clientId}`, {
+        method: 'PUT',
+        body: JSON.stringify(clientData)
+      });
+      await loadCoachData(coachData.id); // Reload clients
+      return true;
+    } catch (error) {
+      console.error('Failed to update client:', error);
+      alert('Failed to update client. Please try again.');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteClient = async (clientId) => {
+    try {
+      setLoading(true);
+      await apiCall(`/coaches/${coachData.id}/clients/${clientId}`, {
+        method: 'DELETE'
+      });
+      await loadCoachData(coachData.id); // Reload clients
+      alert('Client deleted successfully!');
+      return true;
+    } catch (error) {
+      console.error('Failed to delete client:', error);
+      alert('Failed to delete client. Please try again.');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadClientHistory = async (clientId) => {
+    try {
+      setLoading(true);
+      const history = await apiCall(`/coaches/${coachData.id}/clients/${clientId}/history`);
+      setClientHistory(history || []);
+      return history;
+    } catch (error) {
+      console.error('Failed to load client history:', error);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -649,6 +735,31 @@ const CoachingSystem = () => {
           </div>
         </div>
         
+        {/* Analytics Section */}
+        {coachStats && (
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">📊 Your Analytics</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{coachStats.total_clients || 0}</div>
+                <div className="text-sm text-gray-500">Total Clients</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">{coachStats.messages_sent || 0}</div>
+                <div className="text-sm text-gray-500">Messages Sent</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">{coachStats.active_goals || 0}</div>
+                <div className="text-sm text-gray-500">Active Goals</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">{availableCategories.length}</div>
+                <div className="text-sm text-gray-500">Categories</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-3 gap-6">
           <div 
             onClick={() => setCurrentStep('clients')}
@@ -682,6 +793,61 @@ const CoachingSystem = () => {
             <Target className="w-12 h-12 text-purple-500 mb-4" />
             <h3 className="text-xl font-semibold mb-2">3. Accountability</h3>
             <p className="text-gray-600">Send accountability check-ins</p>
+          </div>
+        </div>
+
+        {/* Quick Client Management */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">👥 Recent Clients</h2>
+            <button
+              onClick={() => setCurrentStep('manage-clients')}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              View All →
+            </button>
+          </div>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {allClients.slice(0, 6).map(client => (
+              <div key={client.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-medium text-gray-800">{client.name}</h3>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => {
+                        setEditingClient(client);
+                        setCurrentStep('edit-client');
+                      }}
+                      className="text-blue-600 hover:text-blue-800 text-xs"
+                    >
+                      <Edit className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete ${client.name}?`)) {
+                          deleteClient(client.id);
+                        }
+                      }}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">{client.phone_number}</p>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {client.categories?.slice(0, 2).map(cat => (
+                    <span key={cat} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                      {cat}
+                    </span>
+                  ))}
+                  {client.categories?.length > 2 && (
+                    <span className="text-xs text-gray-500">+{client.categories.length - 2}</span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1089,12 +1255,198 @@ const CoachingSystem = () => {
     </div>
   );
 
+  // Enhanced client management renders
+  const renderClientManagement = () => (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Client Management</h2>
+            <button
+              onClick={() => setCurrentStep('dashboard')}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              ← Back to Dashboard
+            </button>
+          </div>
+          
+          <div className="grid gap-4">
+            {allClients.map(client => (
+              <div key={client.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg text-gray-800">{client.name}</h3>
+                    <p className="text-gray-600">{client.phone_number}</p>
+                    <p className="text-sm text-gray-500">{client.country} • {client.timezone}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {client.categories?.map(cat => (
+                        <span key={cat} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                          {cat}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 ml-4">
+                    <button
+                      onClick={() => {
+                        setEditingClient(client);
+                        setCurrentStep('edit-client');
+                      }}
+                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete ${client.name}?`)) {
+                          deleteClient(client.id);
+                        }
+                      }}
+                      className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderEditClient = () => (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Edit Client</h2>
+            <button
+              onClick={() => {
+                setEditingClient(null);
+                setCurrentStep('manage-clients');
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+          
+          {editingClient && (
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const clientData = {
+                name: formData.get('name'),
+                phone_number: formData.get('phone_number'),
+                country: formData.get('country'),
+                timezone: formData.get('timezone'),
+                categories: formData.get('categories').split(',').map(c => c.trim()).filter(c => c)
+              };
+              
+              const success = await updateClient(editingClient.id, clientData);
+              if (success) {
+                setEditingClient(null);
+                setCurrentStep('manage-clients');
+              }
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    name="name"
+                    type="text"
+                    defaultValue={editingClient.name}
+                    required
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    name="phone_number"
+                    type="tel"
+                    defaultValue={editingClient.phone_number}
+                    required
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                    <input
+                      name="country"
+                      type="text"
+                      defaultValue={editingClient.country}
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+                    <select
+                      name="timezone"
+                      defaultValue={editingClient.timezone}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {timezones.map(tz => (
+                        <option key={tz} value={tz}>{tz}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Categories (comma-separated)</label>
+                  <input
+                    name="categories"
+                    type="text"
+                    defaultValue={editingClient.categories?.join(', ') || ''}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Health, Finance, Business"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingClient(null);
+                    setCurrentStep('manage-clients');
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   // Main render logic
   return (
     <div className="font-sans">
       {currentStep === 'barcode' && renderBarcodeScanner()}
       {currentStep === 'dashboard' && renderDashboard()}
       {currentStep === 'clients' && renderClientSelection()}
+      {currentStep === 'manage-clients' && renderClientManagement()}
+      {currentStep === 'edit-client' && renderEditClient()}
       {currentStep === 'celebration' && renderCelebration()}
       {currentStep === 'accountability' && renderAccountability()}
       {currentStep === 'confirmation' && renderConfirmation()}
