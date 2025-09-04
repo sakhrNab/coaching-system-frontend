@@ -105,16 +105,24 @@ const CoachingSystem = () => {
         setIsRegistered(true);
         setCurrentStep('dashboard');
         await loadCoachData(coach.id);
+      } else {
+        // Only set fallback data if no saved coach data
+        setAvailableCategories(fallbackCategories);
+        setDefaultCelebrationMessages(fallbackCelebrationMessages);
       }
     } catch (error) {
       console.error('Failed to load initial data:', error);
-      // Use fallback data
+      // Use fallback data only on error
       setAvailableCategories(fallbackCategories);
       setDefaultCelebrationMessages(fallbackCelebrationMessages);
     }
   };
 
   const loadCoachData = async (coachId) => {
+    if (loading) {
+      console.log('loadCoachData already in progress, skipping...');
+      return;
+    }
     setLoading(true);
     try {
       // Load clients
@@ -129,7 +137,11 @@ const CoachingSystem = () => {
       // Load categories
       try {
         const categories = await apiCall(`/coaches/${coachId}/categories`);
-        setAvailableCategories(categories.map(cat => cat.name) || []);
+        if (categories && categories.length > 0) {
+          setAvailableCategories(categories.map(cat => cat.name));
+        } else {
+          setAvailableCategories(fallbackCategories);
+        }
       } catch (error) {
         console.error('Failed to load categories, using fallback:', error);
         setAvailableCategories(fallbackCategories);
@@ -138,7 +150,11 @@ const CoachingSystem = () => {
       // Load default messages
       try {
         const templates = await apiCall(`/coaches/${coachId}/templates?type=celebration`);
-        setDefaultCelebrationMessages(templates.map(t => t.content) || fallbackCelebrationMessages);
+        if (templates && templates.length > 0) {
+          setDefaultCelebrationMessages(templates.map(t => t.content));
+        } else {
+          setDefaultCelebrationMessages(fallbackCelebrationMessages);
+        }
       } catch (error) {
         console.error('Failed to load message templates, using fallback:', error);
         setDefaultCelebrationMessages(fallbackCelebrationMessages);
