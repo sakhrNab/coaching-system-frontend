@@ -18,6 +18,7 @@ const CoachingSystem = () => {
   const [celebrationMessages, setCelebrationMessages] = useState({});
   const [accountabilityMessages, setAccountabilityMessages] = useState({});
   const [defaultCelebrationMessages, setDefaultCelebrationMessages] = useState([]);
+  const [defaultAccountabilityMessages, setDefaultAccountabilityMessages] = useState([]);
   
   // Scheduling
   const [schedulingOptions, setSchedulingOptions] = useState({});
@@ -31,6 +32,10 @@ const CoachingSystem = () => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientHistory, setClientHistory] = useState([]);
   const [editingClient, setEditingClient] = useState(null);
+  
+  // 24-hour window tracking
+  const [clientFreeMessageStatus, setClientFreeMessageStatus] = useState({});
+  const [showFreeMessageWarning, setShowFreeMessageWarning] = useState(false);
 
   // API Base URL - Use runtime configuration
   const API_BASE = window._env_?.REACT_APP_API_URL || process.env.REACT_APP_API_URL || 'http://localhost:8001';
@@ -61,6 +66,14 @@ const CoachingSystem = () => {
     "🌟 What victory are you proud of today?",
     "🎊 What positive moment made your day?",
     "💫 What breakthrough did you experience?"
+  ];
+
+  const fallbackAccountabilityMessages = [
+    "🔥 What will you commit to tomorrow?",
+    "📝 How did you progress on your goals today?",
+    "🎯 What action did you take towards your target?",
+    "💪 What challenge did you overcome today?",
+    "📈 How are you measuring your progress?"
   ];
 
   const timezones = ['EST', 'PST', 'CST', 'MST', 'GMT', 'CET', 'JST', 'AEST'];
@@ -110,12 +123,14 @@ const CoachingSystem = () => {
         // Only set fallback data if no saved coach data
         setAvailableCategories(fallbackCategories);
         setDefaultCelebrationMessages(fallbackCelebrationMessages);
+        setDefaultAccountabilityMessages(fallbackAccountabilityMessages);
       }
     } catch (error) {
       console.error('Failed to load initial data:', error);
       // Use fallback data only on error
       setAvailableCategories(fallbackCategories);
       setDefaultCelebrationMessages(fallbackCelebrationMessages);
+      setDefaultAccountabilityMessages(fallbackAccountabilityMessages);
     }
   };
 
@@ -148,7 +163,7 @@ const CoachingSystem = () => {
         setAvailableCategories(fallbackCategories);
       }
 
-      // Load default messages
+      // Load default celebration messages
       try {
         const templates = await apiCall(`/coaches/${coachId}/templates?type=celebration`);
         if (templates && templates.length > 0) {
@@ -157,8 +172,21 @@ const CoachingSystem = () => {
           setDefaultCelebrationMessages(fallbackCelebrationMessages);
         }
       } catch (error) {
-        console.error('Failed to load message templates, using fallback:', error);
+        console.error('Failed to load celebration templates, using fallback:', error);
         setDefaultCelebrationMessages(fallbackCelebrationMessages);
+      }
+
+      // Load default accountability messages
+      try {
+        const templates = await apiCall(`/coaches/${coachId}/templates?type=accountability`);
+        if (templates && templates.length > 0) {
+          setDefaultAccountabilityMessages(templates.map(t => t.content));
+        } else {
+          setDefaultAccountabilityMessages(fallbackAccountabilityMessages);
+        }
+      } catch (error) {
+        console.error('Failed to load accountability templates, using fallback:', error);
+        setDefaultAccountabilityMessages(fallbackAccountabilityMessages);
       }
 
       // Load coach stats for dashboard
@@ -411,6 +439,7 @@ const CoachingSystem = () => {
       setAllClients(fallbackClients);
       setAvailableCategories(fallbackCategories);
       setDefaultCelebrationMessages(fallbackCelebrationMessages);
+      setDefaultAccountabilityMessages(fallbackAccountabilityMessages);
       setCurrentStep('dashboard');
     } finally {
       setLoading(false);
@@ -456,6 +485,94 @@ const CoachingSystem = () => {
       // Add locally as fallback
       setAvailableCategories(prev => [...prev, categoryName]);
       return false;
+    }
+  };
+
+  // Send only celebration messages
+  const sendCelebrationMessages = async () => {
+    setLoading(true);
+    try {
+      const messageRequests = [];
+      
+      // Prepare celebration messages only
+      Object.entries(celebrationMessages).forEach(([clientId, message]) => {
+        if (message && message.trim()) {
+          messageRequests.push({
+            client_ids: [clientId],
+            message_type: 'celebration',
+            content: message,
+            schedule_type: schedulingOptions[`${clientId}_celebration`]?.option || 'now',
+            scheduled_time: schedulingOptions[`${clientId}_celebration`]?.datetime
+          });
+        }
+      });
+
+      // Send all celebration messages
+      for (const messageRequest of messageRequests) {
+        try {
+          await apiCall('/messages/send', {
+            method: 'POST',
+            body: JSON.stringify(messageRequest)
+          });
+        } catch (error) {
+          console.error('Failed to send celebration message:', error);
+        }
+      }
+
+      // Export to Google Sheets
+      await exportToGoogleSheets();
+      
+      alert(`Successfully sent ${messageRequests.length} celebration messages! 🎉`);
+      setCurrentStep('confirmation');
+    } catch (error) {
+      console.error('Send celebration messages error:', error);
+      alert('Some celebration messages may have failed to send. Check the console for details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Send only accountability messages
+  const sendAccountabilityMessages = async () => {
+    setLoading(true);
+    try {
+      const messageRequests = [];
+      
+      // Prepare accountability messages only
+      Object.entries(accountabilityMessages).forEach(([clientId, message]) => {
+        if (message && message.trim()) {
+          messageRequests.push({
+            client_ids: [clientId],
+            message_type: 'accountability',
+            content: message,
+            schedule_type: schedulingOptions[`${clientId}_accountability`]?.option || 'now',
+            scheduled_time: schedulingOptions[`${clientId}_accountability`]?.datetime
+          });
+        }
+      });
+
+      // Send all accountability messages
+      for (const messageRequest of messageRequests) {
+        try {
+          await apiCall('/messages/send', {
+            method: 'POST',
+            body: JSON.stringify(messageRequest)
+          });
+        } catch (error) {
+          console.error('Failed to send accountability message:', error);
+        }
+      }
+
+      // Export to Google Sheets
+      await exportToGoogleSheets();
+      
+      alert(`Successfully sent ${messageRequests.length} accountability messages! 🎯`);
+      setCurrentStep('confirmation');
+    } catch (error) {
+      console.error('Send accountability messages error:', error);
+      alert('Some accountability messages may have failed to send. Check the console for details.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -516,13 +633,47 @@ const CoachingSystem = () => {
     }
   };
 
+  // Check 24-hour window for free messages
+  const checkFreeMessageStatus = async (clientId) => {
+    if (!coachData?.id) return;
+    
+    try {
+      const response = await apiCall(`/coaches/${coachData.id}/clients/${clientId}/can-send-free`);
+      setClientFreeMessageStatus(prev => ({
+        ...prev,
+        [clientId]: response.can_send_free
+      }));
+    } catch (error) {
+      console.error('Failed to check free message status:', error);
+      // Default to false (can't send free) if check fails
+      setClientFreeMessageStatus(prev => ({
+        ...prev,
+        [clientId]: false
+      }));
+    }
+  };
+
+  // Check all selected clients' free message status
+  const checkAllClientsFreeMessageStatus = async () => {
+    if (!coachData?.id || selectedClients.length === 0) return;
+    
+    for (const clientId of selectedClients) {
+      await checkFreeMessageStatus(clientId);
+    }
+  };
+
   // Client selection handlers
   const handleClientSelection = (clientId) => {
     setSelectedClients(prev => {
       if (prev.includes(clientId)) {
         return prev.filter(id => id !== clientId);
       } else {
-        return [...prev, clientId];
+        const newSelection = [...prev, clientId];
+        // Check free message status for the newly selected client
+        setTimeout(() => {
+          checkFreeMessageStatus(clientId);
+        }, 100);
+        return newSelection;
       }
     });
   };
@@ -531,11 +682,25 @@ const CoachingSystem = () => {
     if (selectedClients.length === allClients.length) {
       setSelectedClients([]);
     } else {
-      setSelectedClients(allClients.map(c => c.id));
+      const newSelection = allClients.map(c => c.id);
+      setSelectedClients(newSelection);
+      // Check free message status for all clients
+      setTimeout(() => {
+        newSelection.forEach(clientId => checkFreeMessageStatus(clientId));
+      }, 100);
     }
   };
 
   const handleCelebrationMessage = (clientId, message) => {
+    // Check if it's a custom message (not a template)
+    const isTemplate = defaultCelebrationMessages.includes(message);
+    
+    // If it's a custom message and we can't send free, show warning
+    if (!isTemplate && !clientFreeMessageStatus[clientId]) {
+      setShowFreeMessageWarning(true);
+      return;
+    }
+    
     setCelebrationMessages(prev => ({
       ...prev,
       [clientId]: message
@@ -543,6 +708,15 @@ const CoachingSystem = () => {
   };
 
   const handleAccountabilityMessage = (clientId, message) => {
+    // Check if it's a custom message (not a template)
+    const isTemplate = defaultAccountabilityMessages.includes(message);
+    
+    // If it's a custom message and we can't send free, show warning
+    if (!isTemplate && !clientFreeMessageStatus[clientId]) {
+      setShowFreeMessageWarning(true);
+      return;
+    }
+    
     setAccountabilityMessages(prev => ({
       ...prev,
       [clientId]: message
@@ -562,6 +736,47 @@ const CoachingSystem = () => {
       <Loader className="w-6 h-6 animate-spin text-blue-600 mr-2" />
       <span className="text-gray-600">Loading...</span>
     </div>
+  );
+
+  // 24-Hour Window Warning Modal
+  const FreeMessageWarningModal = () => (
+    showFreeMessageWarning && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">⚠️ 24-Hour Window Rule</h2>
+            <div className="text-left space-y-4 mb-6">
+              <p className="text-gray-600">
+                You cannot send custom messages outside the 24-hour window after the last message from the client.
+              </p>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-blue-800 mb-2">💡 What you can do:</h3>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• Choose one of the template messages above</li>
+                  <li>• Wait for the client to respond (resets the 24h window)</li>
+                  <li>• Use voice messages via WhatsApp for AI transcription</li>
+                </ul>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-800 mb-2">📱 Template Messages:</h3>
+                <p className="text-sm text-gray-600">
+                  Template messages can always be sent and will initiate conversations with clients.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowFreeMessageWarning(false)}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   );
 
   // Add Client Modal Component
@@ -1088,19 +1303,31 @@ const CoachingSystem = () => {
             );
           })}
 
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <button 
               onClick={() => setCurrentStep('clients')}
               className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Back
             </button>
-            <button 
-              onClick={() => setCurrentStep('accountability')}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              Continue to Accountability
-            </button>
+            
+            <div className="flex gap-3">
+              <button 
+                onClick={sendCelebrationMessages}
+                disabled={loading || Object.values(celebrationMessages).every(msg => !msg?.trim())}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Send Celebration Only
+              </button>
+              
+              <button 
+                onClick={() => setCurrentStep('accountability')}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Continue to Accountability
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1121,15 +1348,29 @@ const CoachingSystem = () => {
                 <p className="text-sm text-gray-600 mb-4">Categories: {client.categories.join(', ')}</p>
                 
                 <div className="mb-4">
-                  <h4 className="font-medium mb-2">Suggested Message (based on goals):</h4>
-                  <div className="bg-gray-50 p-3 rounded-lg mb-2">
-                    <p className="text-gray-700">
-                      {client.categories.includes('Health') && "How did your health goals go today? Any wins to share?"}
-                      {client.categories.includes('Finance') && "How are you progressing with your financial goals this week?"}
-                      {client.categories.includes('Business') && "What business action did you take today toward your goals?"}
-                      {!client.categories.includes('Health') && !client.categories.includes('Finance') && !client.categories.includes('Business') && 
-                        "How are you progressing toward your goals today?"}
-                    </p>
+                  <h4 className="font-medium mb-2">Default Messages (Template Messages):</h4>
+                  <p className="text-sm text-gray-600 mb-3">
+                    💡 These messages are sent as WhatsApp templates and can initiate conversations
+                  </p>
+                  <div className="grid gap-2">
+                    {defaultAccountabilityMessages.map((message, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleAccountabilityMessage(clientId, message)}
+                        className={`p-3 text-left rounded-lg border transition-colors ${
+                          accountabilityMessages[clientId] === message
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{message}</span>
+                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                            Template
+                          </span>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
                 
@@ -1231,14 +1472,26 @@ const CoachingSystem = () => {
             >
               Back
             </button>
-            <button 
-              onClick={sendMessages}
-              disabled={loading}
-              className="px-8 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg hover:from-green-700 hover:to-blue-700 transition-all font-semibold flex items-center gap-2 disabled:opacity-50"
-            >
-              {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-              {loading ? 'Sending...' : 'Send All Messages'}
-            </button>
+            
+            <div className="flex gap-3">
+              <button 
+                onClick={sendAccountabilityMessages}
+                disabled={loading || Object.values(accountabilityMessages).every(msg => !msg?.trim())}
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Send Accountability Only
+              </button>
+              
+              <button 
+                onClick={sendMessages}
+                disabled={loading}
+                className="px-8 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg hover:from-green-700 hover:to-blue-700 transition-all font-semibold flex items-center gap-2 disabled:opacity-50"
+              >
+                {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                {loading ? 'Sending...' : 'Send All Messages'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1467,6 +1720,7 @@ const CoachingSystem = () => {
   // Main render logic
   return (
     <div className="font-sans">
+      <FreeMessageWarningModal />
       {currentStep === 'barcode' && renderBarcodeScanner()}
       {currentStep === 'dashboard' && renderDashboard()}
       {currentStep === 'clients' && renderClientSelection()}
