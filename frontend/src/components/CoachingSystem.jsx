@@ -60,6 +60,7 @@ const CoachingSystem = () => {
     'Creativity', 'Career'
   ];
 
+  // Celebration messages (templates 6-10)
   const fallbackCelebrationMessages = [
     "🎉 What are we celebrating today?",
     "✨ What are you grateful for?",
@@ -68,6 +69,7 @@ const CoachingSystem = () => {
     "💫 What breakthrough did you experience?"
   ];
 
+  // Accountability messages (templates 1-5)
   const fallbackAccountabilityMessages = [
     "🔥 What will you commit to tomorrow?",
     "📝 How did you progress on your goals today?",
@@ -707,6 +709,15 @@ const CoachingSystem = () => {
     }));
   };
 
+  const handleCelebrationMessageChange = (clientId, message) => {
+    // This handles custom message input changes
+    // Always allow custom message changes, even if it matches a template
+    setCelebrationMessages(prev => ({
+      ...prev,
+      [clientId]: message
+    }));
+  };
+
   const handleAccountabilityMessage = (clientId, message) => {
     // Check if it's a custom message (not a template)
     const isTemplate = defaultAccountabilityMessages.includes(message);
@@ -717,6 +728,15 @@ const CoachingSystem = () => {
       return;
     }
     
+    setAccountabilityMessages(prev => ({
+      ...prev,
+      [clientId]: message
+    }));
+  };
+
+  const handleAccountabilityMessageChange = (clientId, message) => {
+    // This handles custom message input changes
+    // Always allow custom message changes, even if it matches a template
     setAccountabilityMessages(prev => ({
       ...prev,
       [clientId]: message
@@ -1290,7 +1310,7 @@ const CoachingSystem = () => {
                   <h4 className="font-medium mb-2">Custom Message:</h4>
                   <textarea
                     value={celebrationMessages[clientId] || ''}
-                    onChange={(e) => handleCelebrationMessage(clientId, e.target.value)}
+                    onChange={(e) => handleCelebrationMessageChange(clientId, e.target.value)}
                     placeholder="Type your custom celebration message..."
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
@@ -1378,7 +1398,7 @@ const CoachingSystem = () => {
                   <h4 className="font-medium mb-2">Custom Accountability Message:</h4>
                   <textarea
                     value={accountabilityMessages[clientId] || ''}
-                    onChange={(e) => handleAccountabilityMessage(clientId, e.target.value)}
+                    onChange={(e) => handleAccountabilityMessageChange(clientId, e.target.value)}
                     placeholder="Type your custom accountability message..."
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                     rows="3"
