@@ -78,7 +78,37 @@ const CoachingSystem = () => {
     "📈 How are you measuring your progress?"
   ];
 
-  const timezones = ['EST', 'PST', 'CST', 'MST', 'GMT', 'CET', 'JST', 'AEST'];
+  const timezones = [
+    // North America
+    { value: 'EST', label: 'EST - Eastern Time (US/Canada)', offset: '-05:00' },
+    { value: 'PST', label: 'PST - Pacific Time (US/Canada)', offset: '-08:00' },
+    { value: 'CST', label: 'CST - Central Time (US/Canada)', offset: '-06:00' },
+    { value: 'MST', label: 'MST - Mountain Time (US/Canada)', offset: '-07:00' },
+    
+    // Europe
+    { value: 'GMT', label: 'GMT - Greenwich Mean Time (UK)', offset: '+00:00' },
+    { value: 'CET', label: 'CET - Central European Time (Europe)', offset: '+01:00' },
+    { value: 'EET', label: 'EET - Eastern European Time (Greece, Finland)', offset: '+02:00' },
+    
+    // Middle East
+    { value: 'AST', label: 'AST - Arabia Standard Time (Saudi Arabia, UAE)', offset: '+03:00' },
+    { value: 'IRST', label: 'IRST - Iran Standard Time (Iran)', offset: '+03:30' },
+    { value: 'GST', label: 'GST - Gulf Standard Time (Oman, Qatar)', offset: '+04:00' },
+    
+    // Africa
+    { value: 'WAT', label: 'WAT - West Africa Time (Nigeria, Ghana)', offset: '+01:00' },
+    { value: 'CAT', label: 'CAT - Central Africa Time (South Africa, Egypt)', offset: '+02:00' },
+    { value: 'EAT', label: 'EAT - East Africa Time (Kenya, Tanzania)', offset: '+03:00' },
+    { value: 'SAST', label: 'SAST - South Africa Standard Time (South Africa)', offset: '+02:00' },
+    
+    // Asia
+    { value: 'JST', label: 'JST - Japan Standard Time (Japan)', offset: '+09:00' },
+    { value: 'IST', label: 'IST - India Standard Time (India)', offset: '+05:30' },
+    { value: 'CST_CN', label: 'CST - China Standard Time (China)', offset: '+08:00' },
+    
+    // Australia
+    { value: 'AEST', label: 'AEST - Australian Eastern Time (Australia)', offset: '+10:00' }
+  ];
 
   // API Functions
   const apiCall = async (endpoint, options = {}) => {
@@ -655,14 +685,6 @@ const CoachingSystem = () => {
     }
   };
 
-  // Check all selected clients' free message status
-  const checkAllClientsFreeMessageStatus = async () => {
-    if (!coachData?.id || selectedClients.length === 0) return;
-    
-    for (const clientId of selectedClients) {
-      await checkFreeMessageStatus(clientId);
-    }
-  };
 
   // Client selection handlers
   const handleClientSelection = (clientId) => {
@@ -744,9 +766,19 @@ const CoachingSystem = () => {
   };
 
   const handleScheduling = (clientId, type, option, datetime = null) => {
+    let processedDatetime = datetime;
+    
+    // Convert datetime-local input to ISO string for backend
+    if (datetime && option === 'specific') {
+      // datetime-local input is in format: "2024-01-15T14:30"
+      // Convert to ISO string with timezone info
+      const date = new Date(datetime);
+      processedDatetime = date.toISOString();
+    }
+    
     setSchedulingOptions(prev => ({
       ...prev,
-      [`${clientId}_${type}`]: { option, datetime }
+      [`${clientId}_${type}`]: { option, datetime: processedDatetime }
     }));
   };
 
@@ -855,7 +887,7 @@ const CoachingSystem = () => {
               className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {timezones.map(tz => (
-                <option key={tz} value={tz}>{tz}</option>
+                <option key={tz.value} value={tz.value}>{tz.label}</option>
               ))}
             </select>
 
@@ -1319,6 +1351,66 @@ const CoachingSystem = () => {
                     💡 Tip: You can also send voice messages via WhatsApp for AI transcription & correction
                   </p>
                 </div>
+
+                <div className="mt-6">
+                  <h4 className="font-medium mb-2">⏰ When to send:</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button
+                      onClick={() => handleScheduling(clientId, 'celebration', 'now')}
+                      className={`p-3 border rounded-lg transition-colors ${
+                        schedulingOptions[`${clientId}_celebration`]?.option === 'now'
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Send className="w-5 h-5 mx-auto mb-1" />
+                      Send Now
+                    </button>
+                    
+                    <button
+                      onClick={() => handleScheduling(clientId, 'celebration', 'specific')}
+                      className={`p-3 border rounded-lg transition-colors ${
+                        schedulingOptions[`${clientId}_celebration`]?.option === 'specific'
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Calendar className="w-5 h-5 mx-auto mb-1" />
+                      Specific Time
+                    </button>
+                    
+                    <button
+                      onClick={() => handleScheduling(clientId, 'celebration', 'recurring')}
+                      className={`p-3 border rounded-lg transition-colors ${
+                        schedulingOptions[`${clientId}_celebration`]?.option === 'recurring'
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Clock className="w-5 h-5 mx-auto mb-1" />
+                      Recurring
+                    </button>
+                  </div>
+                  
+                  {schedulingOptions[`${clientId}_celebration`]?.option === 'specific' && (
+                    <input
+                      type="datetime-local"
+                      onChange={(e) => handleScheduling(clientId, 'celebration', 'specific', e.target.value)}
+                      className="w-full mt-3 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  )}
+                  
+                  {schedulingOptions[`${clientId}_celebration`]?.option === 'recurring' && (
+                    <div className="mt-3 p-3 border border-gray-200 rounded-lg">
+                      <label className="block text-sm font-medium mb-2">Repeat every:</label>
+                      <select className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option>Daily</option>
+                        <option>Weekly</option>
+                        <option>Monthly</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -1693,7 +1785,7 @@ const CoachingSystem = () => {
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {timezones.map(tz => (
-                        <option key={tz} value={tz}>{tz}</option>
+                        <option key={tz.value} value={tz.value}>{tz.label}</option>
                       ))}
                     </select>
                   </div>
