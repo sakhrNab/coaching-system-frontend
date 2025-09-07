@@ -1,15 +1,21 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { QrCode, Camera, AlertCircle, CheckCircle, Loader } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { QrCode, Camera, AlertCircle, CheckCircle, Loader, X } from 'lucide-react';
+import jsQR from 'jsqr';
+import { validateQRCode } from '../utils/qrValidation';
 
 const QRScanner = ({ onQRScanned, onError }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [error, setError] = useState('');
   const [scannedData, setScannedData] = useState('');
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [detectionCount, setDetectionCount] = useState(0);
+  const [lastDetectionTime, setLastDetectionTime] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const scanningIntervalRef = useRef(null);
+  const detectionTimeoutRef = useRef(null);
 
   useEffect(() => {
     return () => {
@@ -19,6 +25,9 @@ const QRScanner = ({ onQRScanned, onError }) => {
       }
       if (scanningIntervalRef.current) {
         clearInterval(scanningIntervalRef.current);
+      }
+      if (detectionTimeoutRef.current) {
+        clearTimeout(detectionTimeoutRef.current);
       }
     };
   }, []);
@@ -62,6 +71,7 @@ const QRScanner = ({ onQRScanned, onError }) => {
 
   const stopScanning = () => {
     setIsScanning(false);
+    setIsDetecting(false);
     
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -74,11 +84,23 @@ const QRScanner = ({ onQRScanned, onError }) => {
     }
   };
 
+  const clearError = () => {
+    setError('');
+  };
+
+  const resetScanner = () => {
+    setScannedData('');
+    setError('');
+    setDetectionCount(0);
+    setLastDetectionTime(null);
+    stopScanning();
+  };
+
   const startQRDetection = () => {
-    // Simple QR code detection using canvas and basic pattern matching
-    // In production, you'd want to use a proper QR code library like jsQR
+    let frameCount = 0;
+    
     scanningIntervalRef.current = setInterval(() => {
-      if (videoRef.current && canvasRef.current) {
+      if (videoRef.current && canvasRef.current && videoRef.current.readyState === 4) {
         const video = videoRef.current;
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
@@ -93,43 +115,75 @@ const QRScanner = ({ onQRScanned, onError }) => {
         // Get image data for QR detection
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
         
-        // Simple QR code detection (this is a placeholder)
-        // In production, use jsQR library: https://github.com/cozmo/jsQR
-        const qrData = detectQRCode(imageData);
+        // Update detection count for user feedback
+        frameCount++;
+        setDetectionCount(frameCount);
         
-        if (qrData) {
-          setScannedData(qrData);
-          stopScanning();
+        // Only process every 3rd frame for better performance
+        if (frameCount % 3 === 0) {
+          setIsDetecting(true);
           
-          if (onQRScanned) {
-            onQRScanned(qrData);
-          }
+          // Use requestAnimationFrame for better performance
+          requestAnimationFrame(() => {
+            const qrData = detectQRCode(imageData);
+            
+            if (qrData) {
+              setLastDetectionTime(new Date());
+              setScannedData(qrData);
+              stopScanning();
+              
+              if (onQRScanned) {
+                onQRScanned(qrData);
+              }
+            }
+            
+            setIsDetecting(false);
+          });
         }
       }
-    }, 100); // Check every 100ms
+    }, 150); // Check every 150ms for better performance
   };
 
-  const detectQRCode = (imageData) => {
-    // This is a placeholder implementation
-    // In production, use jsQR library for proper QR code detection
-    // For now, we'll simulate detection for demo purposes
-    
-    // Simulate QR detection after 3 seconds for demo
-    if (Math.random() < 0.01) { // 1% chance per check
-      return "https://coaches.aiwaverider.com/onboard/start?session=demo-session-123";
+  const detectQRCode = useCallback((imageData) => {
+    try {
+      // Use jsQR library for production-ready QR code detection
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert",
+      });
+
+      if (code) {
+        const qrData = code.data;
+        
+        // Validate that this is a coach onboarding QR code
+        const validation = validateQRCode(qrData);
+        if (validation.isValid) {
+          return qrData;
+        } else {
+          console.log('❌ Invalid QR code:', validation.error);
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('QR detection error:', error);
+      return null;
     }
-    
-    return null;
-  };
+  }, []);
 
   const handleManualInput = (e) => {
     e.preventDefault();
     const input = e.target.qrInput.value.trim();
     
     if (input) {
-      setScannedData(input);
-      if (onQRScanned) {
-        onQRScanned(input);
+      // Validate the manual input using the utility function
+      const validation = validateQRCode(input);
+      if (validation.isValid) {
+        setScannedData(input);
+        if (onQRScanned) {
+          onQRScanned(input);
+        }
+      } else {
+        setError(validation.error);
       }
     }
   };
@@ -144,9 +198,17 @@ const QRScanner = ({ onQRScanned, onError }) => {
 
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-            <span className="text-red-800">{error}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+              <span className="text-red-800">{error}</span>
+            </div>
+            <button
+              onClick={clearError}
+              className="text-red-600 hover:text-red-800"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
@@ -199,8 +261,19 @@ const QRScanner = ({ onQRScanned, onError }) => {
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-48 h-48 border-2 border-white border-dashed rounded-lg flex items-center justify-center">
                 <div className="text-white text-center">
-                  <QrCode className="w-12 h-12 mx-auto mb-2" />
-                  <p className="text-sm">Position QR code here</p>
+                  {isDetecting ? (
+                    <Loader className="w-12 h-12 mx-auto mb-2 animate-spin" />
+                  ) : (
+                    <QrCode className="w-12 h-12 mx-auto mb-2" />
+                  )}
+                  <p className="text-sm">
+                    {isDetecting ? 'Detecting...' : 'Position QR code here'}
+                  </p>
+                  {detectionCount > 0 && (
+                    <p className="text-xs opacity-75 mt-1">
+                      Frames processed: {detectionCount}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -230,11 +303,24 @@ const QRScanner = ({ onQRScanned, onError }) => {
 
       {scannedData && (
         <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-            <span className="text-green-800 font-medium">QR Code Detected!</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+              <span className="text-green-800 font-medium">QR Code Detected!</span>
+            </div>
+            <button
+              onClick={resetScanner}
+              className="text-green-600 hover:text-green-800 text-sm"
+            >
+              Scan Another
+            </button>
           </div>
-          <p className="text-sm text-green-700 mt-1 break-all">{scannedData}</p>
+          <p className="text-sm text-green-700 break-all mb-2">{scannedData}</p>
+          {lastDetectionTime && (
+            <p className="text-xs text-green-600">
+              Detected at: {lastDetectionTime.toLocaleTimeString()}
+            </p>
+          )}
         </div>
       )}
     </div>
