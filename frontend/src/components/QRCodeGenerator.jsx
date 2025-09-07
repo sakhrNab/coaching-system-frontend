@@ -69,13 +69,14 @@ const QRCodeGenerator = ({ onQRGenerated, baseUrl = "https://coach.aiwaverider.c
     try {
       const API_BASE = window._env_?.REACT_APP_API_URL || 'https://coach.aiwaverider.com';
       
-      const response = await fetch(`${API_BASE}/onboard/generate-qr?base_url=${encodeURIComponent(baseUrl)}`, {
+      const response = await fetch(`${API_BASE}/onboard/generate-qr`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          expires_in_minutes: 15
+          expires_in_minutes: 15,
+          base_url: baseUrl
         })
       });
 
