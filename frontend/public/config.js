@@ -1,4 +1,4 @@
 window._env_ = {
-  REACT_APP_API_URL: "https://coach.aiwaverider.com"
+  REACT_APP_API_URL: "$REACT_APP_API_URL"
 };
 
