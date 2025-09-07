@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Users, Heart, Target, Clock, Send, Plus, Edit, Check, X, Calendar, Globe, Upload, Download, Loader } from 'lucide-react';
+import QRCodeGenerator from './QRCodeGenerator';
+import QRScanner from './QRScanner';
 
 const CoachingSystem = () => {
   const [currentStep, setCurrentStep] = useState('barcode');
@@ -38,7 +40,7 @@ const CoachingSystem = () => {
   const [showFreeMessageWarning, setShowFreeMessageWarning] = useState(false);
 
   // API Base URL - Use runtime configuration
-  const API_BASE = window._env_?.REACT_APP_API_URL || process.env.REACT_APP_API_URL || 'http://localhost:8001';
+  const API_BASE = 'http://localhost:8001' || window._env_?.REACT_APP_API_URL || process.env.REACT_APP_API_URL;
   
   // Debug: Log API URL (remove in production)
   console.log('API Base URL:', API_BASE);
@@ -945,37 +947,52 @@ const CoachingSystem = () => {
   // Render functions for each step
   const renderBarcodeScanner = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-        <div className="mb-6">
-          <QrCode className="w-16 h-16 mx-auto text-blue-600 mb-4" />
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Coach Registration</h1>
-          <p className="text-gray-600">Scan your registration barcode to connect your WhatsApp Business API</p>
+      <div className="max-w-4xl w-full">
+        <div className="text-center mb-8">
+          <QrCode className="w-16 h-16 mx-auto text-white mb-4" />
+          <h1 className="text-3xl font-bold text-white mb-2">Coach Onboarding</h1>
+          <p className="text-blue-100 text-lg">Choose your preferred method to get started</p>
         </div>
         
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 mb-6">
-          {loading ? (
-            <LoadingSpinner />
-          ) : (
-            <>
-              <QrCode className="w-24 h-24 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">Position barcode in the camera frame</p>
-            </>
-          )}
-        </div>
-        
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-            <p className="text-red-700 text-sm">{error}</p>
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* QR Code Generation */}
+          <div className="bg-white rounded-2xl shadow-2xl p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Generate QR Code</h2>
+            <p className="text-gray-600 text-center mb-6">Create a QR code for coaches to scan and register</p>
+            <QRCodeGenerator 
+              onQRGenerated={(qrData) => {
+                // You can add additional logic here if needed
+              }}
+              baseUrl="https://coaches.aiwaverider.com"
+            />
           </div>
-        )}
+          
+          {/* QR Code Scanning */}
+          <div className="bg-white rounded-2xl shadow-2xl p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Scan QR Code</h2>
+            <p className="text-gray-600 text-center mb-6">Scan a QR code to register as a coach</p>
+            <QRScanner 
+              onQRScanned={(qrData) => {
+                console.log('QR Scanned:', qrData);
+                // Handle QR scan - this would typically redirect to the onboarding URL
+                if (qrData && qrData.includes('onboard/start')) {
+                  window.location.href = qrData;
+                }
+              }}
+            />
+          </div>
+        </div>
         
-        <button 
-          onClick={() => handleBarcodeScanned('{"coach_id":"demo","whatsapp_token":"demo_token","name":"Demo Coach"}')}
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
-        >
-          {loading ? 'Registering...' : 'Demo: Simulate Barcode Scan'}
-        </button>
+        {/* Demo/Test Button */}
+        <div className="text-center mt-8">
+          <button 
+            onClick={() => handleBarcodeScanned('{"coach_id":"demo","whatsapp_token":"demo_token","name":"Demo Coach"}')}
+            disabled={loading}
+            className="bg-white bg-opacity-20 text-white py-3 px-6 rounded-lg font-semibold hover:bg-opacity-30 transition-colors disabled:opacity-50 border border-white border-opacity-30"
+          >
+            {loading ? 'Registering...' : 'Demo: Skip to Dashboard'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1317,24 +1334,28 @@ const CoachingSystem = () => {
                     💡 These messages are sent as WhatsApp templates and can initiate conversations
                   </p>
                   <div className="grid gap-2">
-                    {defaultCelebrationMessages.map((message, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleCelebrationMessage(clientId, message)}
-                        className={`p-3 text-left rounded-lg border transition-colors ${
-                          celebrationMessages[clientId] === message
-                            ? 'border-green-500 bg-green-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span>{message}</span>
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                            Template
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                    {defaultCelebrationMessages.map((message, index) => {
+                      // Ensure message is a string, not an object
+                      const messageText = typeof message === 'string' ? message : (message.content || message.text || JSON.stringify(message));
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => handleCelebrationMessage(clientId, messageText)}
+                          className={`p-3 text-left rounded-lg border transition-colors ${
+                            celebrationMessages[clientId] === messageText
+                              ? 'border-green-500 bg-green-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>{messageText}</span>
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                              Template
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 
@@ -1465,24 +1486,28 @@ const CoachingSystem = () => {
                     💡 These messages are sent as WhatsApp templates and can initiate conversations
                   </p>
                   <div className="grid gap-2">
-                    {defaultAccountabilityMessages.map((message, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleAccountabilityMessage(clientId, message)}
-                        className={`p-3 text-left rounded-lg border transition-colors ${
-                          accountabilityMessages[clientId] === message
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span>{message}</span>
-                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                            Template
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                    {defaultAccountabilityMessages.map((message, index) => {
+                      // Ensure message is a string, not an object
+                      const messageText = typeof message === 'string' ? message : (message.content || message.text || JSON.stringify(message));
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => handleAccountabilityMessage(clientId, messageText)}
+                          className={`p-3 text-left rounded-lg border transition-colors ${
+                            accountabilityMessages[clientId] === messageText
+                              ? 'border-purple-500 bg-purple-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>{messageText}</span>
+                            <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                              Template
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 
@@ -1571,7 +1596,7 @@ const CoachingSystem = () => {
                 className="p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {timezones.map(tz => (
-                  <option key={tz} value={tz}>{tz}</option>
+                  <option key={tz.value} value={tz.value}>{tz.label}</option>
                 ))}
               </select>
             </div>
