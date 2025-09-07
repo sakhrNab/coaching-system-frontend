@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QrCode, Download, RefreshCw, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 
-const QRCodeGenerator = ({ onQRGenerated, baseUrl = "http://localhost:8001" }) => {
+const QRCodeGenerator = ({ onQRGenerated, baseUrl = "https://coach.aiwaverider.com" }) => {
   const [qrData, setQrData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -67,7 +67,7 @@ const QRCodeGenerator = ({ onQRGenerated, baseUrl = "http://localhost:8001" }) =
     setError('');
 
     try {
-      const API_BASE = window._env_?.REACT_APP_API_URL || 'http://localhost:8001';
+      const API_BASE = window._env_?.REACT_APP_API_URL || 'https://coach.aiwaverider.com';
       
       const response = await fetch(`${API_BASE}/onboard/generate-qr?base_url=${encodeURIComponent(baseUrl)}`, {
         method: 'POST',
