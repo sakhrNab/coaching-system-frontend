@@ -15,7 +15,7 @@ The QRScanner component provides production-ready QR code detection for coach on
 - **URL Validation**: Ensures QR code contains a valid URL
 - **Domain Validation**: Validates against allowed domains:
   - `coach.aiwaverider.com`
-  - `coaches.aiwaverider.com`
+  - `coach.aiwaverider.com`
   - `localhost` (for development)
   - Any domain containing `aiwaverider.com`
 - **Path Validation**: Ensures URL contains `/onboard/start`
@@ -73,7 +73,7 @@ https://coach.aiwaverider.com/onboard/start?session=abc123def456
 
 ### Valid Domains
 - `coach.aiwaverider.com`
-- `coaches.aiwaverider.com`
+- `coach.aiwaverider.com`
 - `localhost` (development)
 - Any domain containing `aiwaverider.com`
 

@@ -16,7 +16,7 @@ export const isValidCoachOnboardingQR = (qrData) => {
     // Validate it's a coach onboarding URL
     const isValidOnboardingURL = (
       (url.hostname === 'coach.aiwaverider.com' || 
-       url.hostname === 'coaches.aiwaverider.com' ||
+       url.hostname === 'coach.aiwaverider.com' ||
        url.hostname === 'localhost' ||
        url.hostname.includes('aiwaverider.com')) &&
       url.pathname.includes('/onboard/start') &&

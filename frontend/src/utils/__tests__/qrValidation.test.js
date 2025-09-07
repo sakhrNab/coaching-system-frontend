@@ -15,7 +15,7 @@ describe('QR Validation Utilities', () => {
     test('should validate correct coach onboarding URLs', () => {
       const validURLs = [
         'https://coach.aiwaverider.com/onboard/start?session=abc123def456',
-        'https://coaches.aiwaverider.com/onboard/start?session=xyz789',
+        'https://coach.aiwaverider.com/onboard/start?session=xyz789',
         'https://localhost:3000/onboard/start?session=test123',
         'https://staging.aiwaverider.com/onboard/start?session=staging123'
       ];
@@ -50,7 +50,7 @@ describe('QR Validation Utilities', () => {
           expected: 'abc123def456'
         },
         {
-          url: 'https://coaches.aiwaverider.com/onboard/start?session=xyz789',
+          url: 'https://coach.aiwaverider.com/onboard/start?session=xyz789',
           expected: 'xyz789'
         }
       ];

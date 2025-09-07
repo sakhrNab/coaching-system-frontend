@@ -963,7 +963,7 @@ const CoachingSystem = () => {
               onQRGenerated={(qrData) => {
                 // You can add additional logic here if needed
               }}
-              baseUrl="https://coaches.aiwaverider.com"
+              baseUrl="https://coach.aiwaverider.com"
             />
           </div>
           
