@@ -69,7 +69,7 @@ const QRCodeGenerator = ({ onQRGenerated, baseUrl = "http://localhost:8001" }) =
     try {
       const API_BASE = window._env_?.REACT_APP_API_URL || 'http://localhost:8001';
       
-      const response = await fetch(`${API_BASE}/onboard/generate-qr`, {
+      const response = await fetch(`${API_BASE}/onboard/generate-qr?base_url=${encodeURIComponent(baseUrl)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
